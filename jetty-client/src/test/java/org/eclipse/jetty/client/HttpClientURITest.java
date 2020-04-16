@@ -64,7 +64,6 @@ public class HttpClientURITest extends AbstractHttpClientServerTest
     @ArgumentsSource(ScenarioProvider.class)
     public void testIPv6Host(Scenario scenario) throws Exception
     {
-        Assumptions.assumeTrue(Net.isIpv6InterfaceAvailable());
         start(scenario, new EmptyServerHandler());
 
         String host = "::1";

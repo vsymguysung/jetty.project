@@ -1976,7 +1976,6 @@ public class HttpParserTest
     @Test
     public void testIPv6Host()
     {
-        Assumptions.assumeTrue(Net.isIpv6InterfaceAvailable());
         ByteBuffer buffer = BufferUtil.toBuffer(
             "GET / HTTP/1.1\r\n" +
                 "Host: [::1]\r\n" +
@@ -2058,7 +2057,6 @@ public class HttpParserTest
     @Test
     public void testIPv6HostPort()
     {
-        Assumptions.assumeTrue(Net.isIpv6InterfaceAvailable());
         ByteBuffer buffer = BufferUtil.toBuffer(
             "GET / HTTP/1.1\r\n" +
                 "Host: [::1]:8888\r\n" +
