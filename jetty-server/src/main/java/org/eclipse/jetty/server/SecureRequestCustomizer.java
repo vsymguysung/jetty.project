@@ -19,6 +19,10 @@
 package org.eclipse.jetty.server;
 
 import java.security.cert.X509Certificate;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
@@ -33,6 +37,8 @@ import org.eclipse.jetty.http.PreEncodedHttpField;
 import org.eclipse.jetty.io.EndPoint;
 import org.eclipse.jetty.io.ssl.SslConnection;
 import org.eclipse.jetty.io.ssl.SslConnection.DecryptedEndPoint;
+import org.eclipse.jetty.util.Attributes;
+import org.eclipse.jetty.util.StringUtil;
 import org.eclipse.jetty.util.TypeUtil;
 import org.eclipse.jetty.util.annotation.Name;
 import org.eclipse.jetty.util.ssl.SniX509ExtendedKeyManager;
@@ -53,7 +59,7 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
     /**
      * The name of the SSLSession attribute that will contain any cached information.
      */
-    public static final String CACHED_INFO_ATTR = CachedInfo.class.getName();
+    public static final String CACHED_INFO_ATTR = Info.class.getName();
 
     private String sslSessionAttribute = "org.eclipse.jetty.servlet.request.ssl_session";
 
@@ -262,44 +268,14 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
             }
         }
 
-        try
+        Info info = (Info)sslSession.getValue(CACHED_INFO_ATTR);
+        if (info == null)
         {
-            String cipherSuite = sslSession.getCipherSuite();
-            Integer keySize;
-            X509Certificate[] certs;
-            String idStr;
-
-            CachedInfo cachedInfo = (CachedInfo)sslSession.getValue(CACHED_INFO_ATTR);
-            if (cachedInfo != null)
-            {
-                keySize = cachedInfo.getKeySize();
-                certs = cachedInfo.getCerts();
-                idStr = cachedInfo.getIdStr();
-            }
-            else
-            {
-                keySize = SslContextFactory.deduceKeyLength(cipherSuite);
-                certs = getCertChain(request, sslSession);
-                byte[] bytes = sslSession.getId();
-                idStr = TypeUtil.toHexString(bytes);
-                cachedInfo = new CachedInfo(keySize, certs, idStr);
-                sslSession.putValue(CACHED_INFO_ATTR, cachedInfo);
-            }
-
-            if (certs != null)
-                request.setAttribute("javax.servlet.request.X509Certificate", certs);
-
-            request.setAttribute("javax.servlet.request.cipher_suite", cipherSuite);
-            request.setAttribute("javax.servlet.request.key_size", keySize);
-            request.setAttribute("javax.servlet.request.ssl_session_id", idStr);
-            String sessionAttribute = getSslSessionAttribute();
-            if (sessionAttribute != null && !sessionAttribute.isEmpty())
-                request.setAttribute(sessionAttribute, sslSession);
+            info = new Info(getCertChain(request, sslSession), sslSession);
+            sslSession.putValue(CACHED_INFO_ATTR, info);
         }
-        catch (Exception e)
-        {
-            LOG.warn("Unable to customize request with encryption details", e);
-        }
+
+        request.setAttributes(new SslAttributes(info, request.getAttributes()));
     }
 
     /**
@@ -356,17 +332,15 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
      * Simple bundle of information that is cached in the SSLSession. Stores the
      * effective keySize and the client certificate chain.
      */
-    private static class CachedInfo
+    private static class Info
     {
         private final X509Certificate[] _certs;
-        private final Integer _keySize;
-        private final String _idStr;
+        private final SSLSession _session;
 
-        CachedInfo(Integer keySize, X509Certificate[] certs, String idStr)
+        Info(X509Certificate[] certs, SSLSession sslSession)
         {
-            this._keySize = keySize;
             this._certs = certs;
-            this._idStr = idStr;
+            this._session = sslSession;
         }
 
         X509Certificate[] getCerts()
@@ -374,14 +348,69 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
             return _certs;
         }
 
-        Integer getKeySize()
+        SSLSession getSession()
         {
-            return _keySize;
+            return _session;
+        }
+    }
+
+    private class SslAttributes extends Attributes.Wrapper
+    {
+        final Info _info;
+
+        public SslAttributes(Info info, Attributes attributes)
+        {
+            super(attributes);
+            _info = info;
         }
 
-        String getIdStr()
+        @Override
+        public Object getAttribute(String name)
         {
-            return _idStr;
+            try
+            {
+                switch (name)
+                {
+                    case "javax.servlet.request.X509Certificate":
+                        return _info.getCerts();
+
+                    case "javax.servlet.request.cipher_suite":
+                        return _info.getSession().getCipherSuite();
+
+                    case "javax.servlet.request.key_size":
+                        return SslContextFactory.deduceKeyLength(_info.getSession().getCipherSuite());
+
+                    case "javax.servlet.request.ssl_session_id":
+                        return TypeUtil.toHexString(_info.getSession().getId());
+
+                    default:
+                        String sessionAttribute = getSslSessionAttribute();
+                        if (!StringUtil.isEmpty(sessionAttribute) && sessionAttribute.equals(name))
+                            return _info.getSession();
+                        return _attributes.getAttribute(name);
+                }
+            }
+            catch (Exception e)
+            {
+                LOG.warn("Unable to customize request with encryption details", e);
+                return null;
+            }
+        }
+
+        @Override
+        public Enumeration<String> getAttributeNames()
+        {
+            Set<String> names = new HashSet<>();
+            for (Enumeration<String> e = _attributes.getAttributeNames(); e.hasMoreElements();)
+                names.add(e.nextElement());
+            names.add("javax.servlet.request.X509Certificate");
+            names.add("javax.servlet.request.cipher_suite");
+            names.add("javax.servlet.request.key_size");
+            names.add("javax.servlet.request.ssl_session_id");
+            String sessionAttribute = getSslSessionAttribute();
+            if (!StringUtil.isEmpty(sessionAttribute))
+                names.add(sessionAttribute);
+            return Collections.enumeration(names);
         }
     }
 }

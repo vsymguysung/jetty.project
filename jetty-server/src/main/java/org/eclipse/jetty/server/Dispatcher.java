@@ -256,10 +256,8 @@ public class Dispatcher implements RequestDispatcher
         return String.format("Dispatcher@0x%x{%s,%s}", hashCode(), _named, _uri);
     }
 
-    private class ForwardAttributes implements Attributes
+    private class ForwardAttributes extends Attributes.Wrapper
     {
-        final Attributes _attr;
-
         String _requestURI;
         String _contextPath;
         String _servletPath;
@@ -269,7 +267,7 @@ public class Dispatcher implements RequestDispatcher
 
         ForwardAttributes(Attributes attributes)
         {
-            _attr = attributes;
+            super(attributes);
         }
 
         @Override
@@ -294,14 +292,14 @@ public class Dispatcher implements RequestDispatcher
             if (key.startsWith(__INCLUDE_PREFIX))
                 return null;
 
-            return _attr.getAttribute(key);
+            return _attributes.getAttribute(key);
         }
 
         @Override
         public Enumeration<String> getAttributeNames()
         {
             HashSet<String> set = new HashSet<>();
-            Enumeration<String> e = _attr.getAttributeNames();
+            Enumeration<String> e = _attributes.getAttributeNames();
             while (e.hasMoreElements())
             {
                 String name = e.nextElement();
@@ -347,20 +345,20 @@ public class Dispatcher implements RequestDispatcher
                 else if (key.equals(FORWARD_MAPPING))
                     _mapping = (HttpServletMapping)value;
                 else if (value == null)
-                    _attr.removeAttribute(key);
+                    _attributes.removeAttribute(key);
                 else
-                    _attr.setAttribute(key, value);
+                    _attributes.setAttribute(key, value);
             }
             else if (value == null)
-                _attr.removeAttribute(key);
+                _attributes.removeAttribute(key);
             else
-                _attr.setAttribute(key, value);
+                _attributes.setAttribute(key, value);
         }
 
         @Override
         public String toString()
         {
-            return "FORWARD+" + _attr.toString();
+            return "FORWARD+" + _attributes.toString();
         }
 
         @Override
@@ -376,10 +374,8 @@ public class Dispatcher implements RequestDispatcher
         }
     }
 
-    private class IncludeAttributes implements Attributes
+    private class IncludeAttributes extends Attributes.Wrapper
     {
-        final Attributes _attr;
-
         String _requestURI;
         String _contextPath;
         String _servletPath;
@@ -389,7 +385,7 @@ public class Dispatcher implements RequestDispatcher
 
         IncludeAttributes(Attributes attributes)
         {
-            _attr = attributes;
+            super(attributes);
         }
 
         @Override
@@ -413,14 +409,14 @@ public class Dispatcher implements RequestDispatcher
             else if (key.startsWith(__INCLUDE_PREFIX))
                 return null;
 
-            return _attr.getAttribute(key);
+            return _attributes.getAttribute(key);
         }
 
         @Override
         public Enumeration<String> getAttributeNames()
         {
             HashSet<String> set = new HashSet<>();
-            Enumeration<String> e = _attr.getAttributeNames();
+            Enumeration<String> e = _attributes.getAttributeNames();
             while (e.hasMoreElements())
             {
                 String name = e.nextElement();
@@ -465,20 +461,20 @@ public class Dispatcher implements RequestDispatcher
                 else if (key.equals(INCLUDE_MAPPING))
                     _mapping = (HttpServletMapping)value;
                 else if (value == null)
-                    _attr.removeAttribute(key);
+                    _attributes.removeAttribute(key);
                 else
-                    _attr.setAttribute(key, value);
+                    _attributes.setAttribute(key, value);
             }
             else if (value == null)
-                _attr.removeAttribute(key);
+                _attributes.removeAttribute(key);
             else
-                _attr.setAttribute(key, value);
+                _attributes.setAttribute(key, value);
         }
 
         @Override
         public String toString()
         {
-            return "INCLUDE+" + _attr.toString();
+            return "INCLUDE+" + _attributes.toString();
         }
 
         @Override

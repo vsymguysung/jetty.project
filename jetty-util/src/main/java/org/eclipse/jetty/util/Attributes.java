@@ -26,13 +26,67 @@ import java.util.Enumeration;
  */
 public interface Attributes
 {
-    public void removeAttribute(String name);
+    void removeAttribute(String name);
 
-    public void setAttribute(String name, Object attribute);
+    void setAttribute(String name, Object attribute);
 
-    public Object getAttribute(String name);
+    Object getAttribute(String name);
 
-    public Enumeration<String> getAttributeNames();
+    Enumeration<String> getAttributeNames();
 
-    public void clearAttributes();
+    void clearAttributes();
+
+    static Attributes unwrap(Attributes attributes)
+    {
+        while (attributes instanceof Wrapper)
+        {
+            attributes = ((Wrapper)attributes).getAttributes();
+        }
+        return attributes;
+    }
+
+    abstract class Wrapper implements Attributes
+    {
+        protected final Attributes _attributes;
+
+        public Wrapper(Attributes attributes)
+        {
+            _attributes = attributes;
+        }
+
+        public Attributes getAttributes()
+        {
+            return _attributes;
+        }
+
+        @Override
+        public void removeAttribute(String name)
+        {
+            _attributes.removeAttribute(name);
+        }
+
+        @Override
+        public void setAttribute(String name, Object attribute)
+        {
+            _attributes.setAttribute(name, attribute);
+        }
+
+        @Override
+        public Object getAttribute(String name)
+        {
+            return _attributes.getAttribute(name);
+        }
+
+        @Override
+        public Enumeration<String> getAttributeNames()
+        {
+            return _attributes.getAttributeNames();
+        }
+
+        @Override
+        public void clearAttributes()
+        {
+            _attributes.clearAttributes();
+        }
+    }
 }

@@ -1808,6 +1808,7 @@ public class Request implements HttpServletRequest
         _async = null;
         _asyncNotSupportedSource = null;
         _handled = false;
+        _attributes = Attributes.unwrap(_attributes);
         if (_attributes != null)
             _attributes.clearAttributes();
         _contentType = null;
