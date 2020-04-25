@@ -35,7 +35,6 @@ import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpScheme;
 import org.eclipse.jetty.http.PreEncodedHttpField;
 import org.eclipse.jetty.io.EndPoint;
-import org.eclipse.jetty.io.ssl.SslConnection;
 import org.eclipse.jetty.io.ssl.SslConnection.DecryptedEndPoint;
 import org.eclipse.jetty.util.Attributes;
 import org.eclipse.jetty.util.StringUtil;
@@ -55,11 +54,6 @@ import org.slf4j.LoggerFactory;
 public class SecureRequestCustomizer implements HttpConfiguration.Customizer
 {
     private static final Logger LOG = LoggerFactory.getLogger(SecureRequestCustomizer.class);
-
-    /**
-     * The name of the SSLSession attribute that will contain any cached information.
-     */
-    public static final String CACHED_INFO_ATTR = Info.class.getName();
 
     private String sslSessionAttribute = "org.eclipse.jetty.servlet.request.ssl_session";
 
@@ -207,22 +201,22 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
         EndPoint endp = request.getHttpChannel().getEndPoint();
         if (endp instanceof DecryptedEndPoint)
         {
-            SslConnection.DecryptedEndPoint sslEndp = (DecryptedEndPoint)endp;
-            SslConnection sslConnection = sslEndp.getSslConnection();
-            SSLEngine sslEngine = sslConnection.getSSLEngine();
-            customize(sslEngine, request);
-
+            SSLEngine sslEngine = ((DecryptedEndPoint)endp).getSslConnection().getSSLEngine();
             request.setScheme(HttpScheme.HTTPS.asString());
-        }
-        else if (endp instanceof ProxyConnectionFactory.ProxyEndPoint)
-        {
-            ProxyConnectionFactory.ProxyEndPoint proxy = (ProxyConnectionFactory.ProxyEndPoint)endp;
-            if (request.getHttpURI().getScheme() == null && proxy.getAttribute(ProxyConnectionFactory.TLS_VERSION) != null)
-                request.setScheme(HttpScheme.HTTPS.asString());
-        }
-
-        if (HttpScheme.HTTPS.is(request.getScheme()))
+            customize(sslEngine, request);
             customizeSecure(request);
+        }
+        else if (HttpScheme.HTTPS.is(request.getScheme()))
+        {
+            customizeSecure(request);
+        }
+        else if (endp instanceof ProxyConnectionFactory.ProxyEndPoint &&
+            request.getHttpURI().getScheme() == null &&
+            ((ProxyConnectionFactory.ProxyEndPoint)endp).getAttribute(ProxyConnectionFactory.TLS_VERSION) != null)
+        {
+            request.setScheme(HttpScheme.HTTPS.asString());
+            customizeSecure(request);
+        }
     }
 
     /**
@@ -251,31 +245,22 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
 
         if (_sniHostCheck || _sniRequired)
         {
-            String name = request.getServerName();
             X509 x509 = (X509)sslSession.getValue(SniX509ExtendedKeyManager.SNI_X509);
-
             if (LOG.isDebugEnabled())
-                LOG.debug("Host {} with SNI {}", name, x509);
+                LOG.debug("Host {} with SNI {}", request.getServerName(), x509);
 
             if (x509 == null)
             {
                 if (_sniRequired)
                     throw new BadMessageException(400, "SNI required");
             }
-            else if (_sniHostCheck && !x509.matches(name))
+            else if (_sniHostCheck && !x509.matches(request.getServerName()))
             {
                 throw new BadMessageException(400, "Host does not match SNI");
             }
         }
-
-        Info info = (Info)sslSession.getValue(CACHED_INFO_ATTR);
-        if (info == null)
-        {
-            info = new Info(getCertChain(request, sslSession), sslSession);
-            sslSession.putValue(CACHED_INFO_ATTR, info);
-        }
-
-        request.setAttributes(new SslAttributes(info, request.getAttributes()));
+        
+        request.setAttributes(new SslAttributes(request, sslSession, request.getAttributes()));
     }
 
     /**
@@ -302,10 +287,8 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
         if (sslConnectionFactory != null)
         {
             SslContextFactory sslContextFactory = sslConnectionFactory.getSslContextFactory();
-            if (sslConnectionFactory != null)
-            {
+            if (sslContextFactory != null)
                 return sslContextFactory.getX509CertChain(sslSession);
-            }
         }
 
         // Fallback, either no SslConnectionFactory or no SslContextFactory instance found
@@ -328,40 +311,16 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
         return String.format("%s@%x", this.getClass().getSimpleName(), hashCode());
     }
 
-    /**
-     * Simple bundle of information that is cached in the SSLSession. Stores the
-     * effective keySize and the client certificate chain.
-     */
-    private static class Info
-    {
-        private final X509Certificate[] _certs;
-        private final SSLSession _session;
-
-        Info(X509Certificate[] certs, SSLSession sslSession)
-        {
-            this._certs = certs;
-            this._session = sslSession;
-        }
-
-        X509Certificate[] getCerts()
-        {
-            return _certs;
-        }
-
-        SSLSession getSession()
-        {
-            return _session;
-        }
-    }
-
     private class SslAttributes extends Attributes.Wrapper
     {
-        final Info _info;
+        private final Request _request;
+        private final SSLSession _session;
 
-        public SslAttributes(Info info, Attributes attributes)
+        public SslAttributes(Request request, SSLSession sslSession, Attributes attributes)
         {
             super(attributes);
-            _info = info;
+            this._request = request;
+            this._session = sslSession;
         }
 
         @Override
@@ -372,21 +331,21 @@ public class SecureRequestCustomizer implements HttpConfiguration.Customizer
                 switch (name)
                 {
                     case "javax.servlet.request.X509Certificate":
-                        return _info.getCerts();
+                        return SecureRequestCustomizer.this.getCertChain(_request, _session);
 
                     case "javax.servlet.request.cipher_suite":
-                        return _info.getSession().getCipherSuite();
+                        return _session.getCipherSuite();
 
                     case "javax.servlet.request.key_size":
-                        return SslContextFactory.deduceKeyLength(_info.getSession().getCipherSuite());
+                        return SslContextFactory.deduceKeyLength(_session.getCipherSuite());
 
                     case "javax.servlet.request.ssl_session_id":
-                        return TypeUtil.toHexString(_info.getSession().getId());
+                        return TypeUtil.toHexString(_session.getId());
 
                     default:
                         String sessionAttribute = getSslSessionAttribute();
                         if (!StringUtil.isEmpty(sessionAttribute) && sessionAttribute.equals(name))
-                            return _info.getSession();
+                            return _session;
                         return _attributes.getAttribute(name);
                 }
             }

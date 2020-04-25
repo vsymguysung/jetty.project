@@ -275,18 +275,23 @@ public class Dispatcher implements RequestDispatcher
         {
             if (Dispatcher.this._named == null)
             {
-                if (key.equals(FORWARD_PATH_INFO))
-                    return _pathInfo;
-                if (key.equals(FORWARD_REQUEST_URI))
-                    return _requestURI;
-                if (key.equals(FORWARD_SERVLET_PATH))
-                    return _servletPath;
-                if (key.equals(FORWARD_CONTEXT_PATH))
-                    return _contextPath;
-                if (key.equals(FORWARD_QUERY_STRING))
-                    return _query;
-                if (key.equals(FORWARD_MAPPING))
-                    return _mapping;
+                switch (key)
+                {
+                    case FORWARD_PATH_INFO:
+                        return _pathInfo;
+                    case FORWARD_REQUEST_URI:
+                        return _requestURI;
+                    case FORWARD_SERVLET_PATH:
+                        return _servletPath;
+                    case FORWARD_CONTEXT_PATH:
+                        return _contextPath;
+                    case FORWARD_QUERY_STRING:
+                        return _query;
+                    case FORWARD_MAPPING:
+                        return _mapping;
+                    default:
+                        break;
+                }
             }
 
             if (key.startsWith(__INCLUDE_PREFIX))
@@ -332,22 +337,32 @@ public class Dispatcher implements RequestDispatcher
         {
             if (_named == null && key.startsWith("javax.servlet."))
             {
-                if (key.equals(FORWARD_PATH_INFO))
-                    _pathInfo = (String)value;
-                else if (key.equals(FORWARD_REQUEST_URI))
-                    _requestURI = (String)value;
-                else if (key.equals(FORWARD_SERVLET_PATH))
-                    _servletPath = (String)value;
-                else if (key.equals(FORWARD_CONTEXT_PATH))
-                    _contextPath = (String)value;
-                else if (key.equals(FORWARD_QUERY_STRING))
-                    _query = (String)value;
-                else if (key.equals(FORWARD_MAPPING))
-                    _mapping = (HttpServletMapping)value;
-                else if (value == null)
-                    _attributes.removeAttribute(key);
-                else
-                    _attributes.setAttribute(key, value);
+                switch (key)
+                {
+                    case FORWARD_PATH_INFO:
+                        _pathInfo = (String)value;
+                        return;
+                    case FORWARD_REQUEST_URI:
+                        _requestURI = (String)value;
+                        return;
+                    case FORWARD_SERVLET_PATH:
+                        _servletPath = (String)value;
+                        return;
+                    case FORWARD_CONTEXT_PATH:
+                        _contextPath = (String)value;
+                        return;
+                    case FORWARD_QUERY_STRING:
+                        _query = (String)value;
+                        return;
+                    case FORWARD_MAPPING:
+                        _mapping = (HttpServletMapping)value;
+                        return;
+                    default:
+                        if (value == null)
+                            _attributes.removeAttribute(key);
+                        else
+                            _attributes.setAttribute(key, value);
+                }
             }
             else if (value == null)
                 _attributes.removeAttribute(key);
@@ -393,18 +408,23 @@ public class Dispatcher implements RequestDispatcher
         {
             if (Dispatcher.this._named == null)
             {
-                if (key.equals(INCLUDE_PATH_INFO))
-                    return _pathInfo;
-                if (key.equals(INCLUDE_SERVLET_PATH))
-                    return _servletPath;
-                if (key.equals(INCLUDE_CONTEXT_PATH))
-                    return _contextPath;
-                if (key.equals(INCLUDE_QUERY_STRING))
-                    return _query;
-                if (key.equals(INCLUDE_REQUEST_URI))
-                    return _requestURI;
-                if (key.equals(INCLUDE_MAPPING))
-                    return _mapping;
+                switch (key)
+                {
+                    case INCLUDE_PATH_INFO:
+                        return _pathInfo;
+                    case INCLUDE_SERVLET_PATH:
+                        return _servletPath;
+                    case INCLUDE_CONTEXT_PATH:
+                        return _contextPath;
+                    case INCLUDE_QUERY_STRING:
+                        return _query;
+                    case INCLUDE_REQUEST_URI:
+                        return _requestURI;
+                    case INCLUDE_MAPPING:
+                        return _mapping;
+                    default:
+                        break;
+                }
             }
             else if (key.startsWith(__INCLUDE_PREFIX))
                 return null;
@@ -448,22 +468,32 @@ public class Dispatcher implements RequestDispatcher
         {
             if (_named == null && key.startsWith("javax.servlet."))
             {
-                if (key.equals(INCLUDE_PATH_INFO))
-                    _pathInfo = (String)value;
-                else if (key.equals(INCLUDE_REQUEST_URI))
-                    _requestURI = (String)value;
-                else if (key.equals(INCLUDE_SERVLET_PATH))
-                    _servletPath = (String)value;
-                else if (key.equals(INCLUDE_CONTEXT_PATH))
-                    _contextPath = (String)value;
-                else if (key.equals(INCLUDE_QUERY_STRING))
-                    _query = (String)value;
-                else if (key.equals(INCLUDE_MAPPING))
-                    _mapping = (HttpServletMapping)value;
-                else if (value == null)
-                    _attributes.removeAttribute(key);
-                else
-                    _attributes.setAttribute(key, value);
+                switch (key)
+                {
+                    case INCLUDE_PATH_INFO:
+                        _pathInfo = (String)value;
+                        return;
+                    case INCLUDE_REQUEST_URI:
+                        _requestURI = (String)value;
+                        return;
+                    case INCLUDE_SERVLET_PATH:
+                        _servletPath = (String)value;
+                        return;
+                    case INCLUDE_CONTEXT_PATH:
+                        _contextPath = (String)value;
+                        return;
+                    case INCLUDE_QUERY_STRING:
+                        _query = (String)value;
+                        return;
+                    case INCLUDE_MAPPING:
+                        _mapping = (HttpServletMapping)value;
+                        return;
+                    default:
+                        if (value == null)
+                            _attributes.removeAttribute(key);
+                        else
+                            _attributes.setAttribute(key, value);
+                }
             }
             else if (value == null)
                 _attributes.removeAttribute(key);
